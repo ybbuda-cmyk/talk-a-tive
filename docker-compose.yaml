@@ -1,0 +1,52 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - database_net
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "mongodb://localhost:27017/chat-app", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      mongo:
+        condition: service_healthy
+    volumes:
+      - backend_uploads:/app/uploads
+    networks:
+      - frontend_net
+      - database_net
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - frontend_net
+
+volumes:
+  mongo_data:
+  backend_uploads:
+
+networks:
+  frontend_net:
+    driver: bridge
+  database_net:
+    driver: bridge
+    internal: true
